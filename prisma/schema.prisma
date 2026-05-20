@@ -1,0 +1,208 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
+enum ProductStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum BlogStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  PAID
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentGateway {
+  RAZORPAY
+  UPI
+  COD
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model User {
+  id             String      @id @default(cuid())
+  name           String
+  email          String      @unique
+  phone          String?
+  passwordHash   String
+  role           Role        @default(USER)
+  status         UserStatus  @default(ACTIVE)
+  createdAt      DateTime    @default(now())
+  orders         Order[]
+  reviews        Review[]
+  cartItems      CartItem[]
+  blogsCreated   Blog[]
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  password     String
+  role         Role     @default(ADMIN)
+}
+
+model Category {
+  id           String    @id @default(cuid())
+  name         String
+  slug         String    @unique
+  products     Product[]
+}
+
+model Product {
+  id              String         @id @default(cuid())
+  name            String
+  slug            String         @unique
+  description     String
+  price           Decimal        @db.Decimal(10, 2)
+  discountPrice   Decimal?       @db.Decimal(10, 2)
+  stock           Int
+  categoryId      String
+  thumbnail       String
+  gallery         Json
+  benefits        Json
+  ingredients     Json
+  status          ProductStatus  @default(PUBLISHED)
+  featured        Boolean        @default(false)
+  metaTitle       String?
+  metaDescription String?
+  createdAt       DateTime       @default(now())
+  category        Category       @relation(fields: [categoryId], references: [id])
+  productImages   ProductImage[]
+  cartItems       CartItem[]
+  orderItems      OrderItem[]
+  reviews         Review[]
+  faqItems        Faq[]          @relation("ProductFaqs")
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  productId String
+  imageUrl  String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  qty       Int
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+}
+
+model Order {
+  id               String       @id @default(cuid())
+  userId           String
+  paymentId        String?      @unique
+  status           OrderStatus  @default(PENDING)
+  total            Decimal      @db.Decimal(10, 2)
+  shippingAddress  String
+  createdAt        DateTime     @default(now())
+  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items            OrderItem[]
+  payment          Payment?
+}
+
+model OrderItem {
+  id        String   @id @default(cuid())
+  orderId    String
+  productId  String
+  qty        Int
+  price      Decimal @db.Decimal(10, 2)
+  order      Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product    Product @relation(fields: [productId], references: [id])
+}
+
+model Payment {
+  id            String         @id @default(cuid())
+  orderId        String         @unique
+  gateway        PaymentGateway
+  transactionId  String
+  amount         Decimal        @db.Decimal(10, 2)
+  status         PaymentStatus  @default(PENDING)
+  order          Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model Blog {
+  id          String      @id @default(cuid())
+  title       String
+  slug        String      @unique
+  excerpt     String?
+  content     String
+  image       String
+  category    String?
+  tags        Json
+  status      BlogStatus  @default(PUBLISHED)
+  createdAt   DateTime    @default(now())
+  createdById String?
+  createdBy   User?       @relation(fields: [createdById], references: [id])
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  userId     String
+  productId  String
+  rating     Int
+  comment    String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model Faq {
+  id         String    @id @default(cuid())
+  question   String
+  answer     String
+  productId  String?
+  product    Product?  @relation("ProductFaqs", fields: [productId], references: [id])
+}
+
+model Certification {
+  id         String   @id @default(cuid())
+  title      String
+  image      String
+}
+
+model Distributor {
+  id            String   @id @default(cuid())
+  name          String
+  email         String
+  phone         String
+  businessType  String
+}
